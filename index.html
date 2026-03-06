@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>スルリム / Precision Aesthetic Technology</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto+Sans+JP', sans-serif;
+            background-color: #f8fafc;
+            overflow-x: hidden;
+            user-select: text !important;
+            -webkit-user-select: text !important;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .reveal-container {
+            width: 100%;
+            max-width: 430px; 
+            height: 100vh;
+            position: relative;
+            background: white;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.05);
+            overflow-y: auto;
+            border-left: 1px solid #e2e8f0;
+            border-right: 1px solid #e2e8f0;
+        }
+        .reveal-container::-webkit-scrollbar {
+            width: 4px;
+        }
+        .reveal-container::-webkit-scrollbar-thumb {
+            background: #e2e8f0;
+            border-radius: 10px;
+        }
+        canvas {
+            display: block;
+            touch-action: none;
+        }
+        /* キャンバスのフェードアウト演出用 */
+        #scratch-canvas {
+            transition: opacity 2s ease-in-out;
+            opacity: 1;
+        }
+        .fade-active {
+            opacity: 1;
+            transform: scale(1);
+            transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+        }
+        .hidden-section {
+            display: none !important;
+        }
+        .marker-highlight {
+            background: linear-gradient(transparent 65%, rgba(16, 185, 129, 0.15) 65%);
+        }
+        #after-image-container {
+            transition: transform 2.5s cubic-bezier(0.16, 1, 0.3, 1), filter 2.5s ease-out;
+            filter: brightness(0.8) saturate(0.8);
+        }
+        #after-image-container.emerge-active {
+            transform: scale(1.05);
+            filter: brightness(1.05) saturate(1.1);
+        }
+        .stat-circle {
+            width: 85px;
+            height: 85px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: 9999px;
+            background: white;
+            border: 1px solid #ecfdf5;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+        }
+        .step-indicator {
+            position: relative;
+        }
+        .step-indicator::before {
+            content: '';
+            position: absolute;
+            top: 40px;
+            left: 20px;
+            bottom: -20px;
+            width: 2px;
+            background: linear-gradient(to bottom, #10b981 0%, #f1f5f9 100%);
+            z-index: 0;
+        }
+        .step-item:last-child .step-indicator::before {
+            display: none;
+        }
+        /* Q&A アコーディオン */
+        .qa-answer {
+            max-height: 0;
+            overflow: hidden;
+            transition: all 0.3s ease-out;
+            opacity: 0;
+        }
+        .qa-item.active .qa-answer {
+            max-height: 300px;
+            opacity: 1;
+            padding-top: 12px;
+        }
+        .qa-icon {
+            transition: transform 0.3s ease;
+        }
+        .qa-item.active .qa-icon {
+            transform: rotate(180deg);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="reveal-container" id="scroll-container">
+        
+        <!-- 1. INTRO SECTION -->
+        <section id="intro-section" class="absolute inset-0 z-50 flex flex-col items-center justify-center p-8 bg-white transition-all duration-1000 text-center">
+            <div class="mb-8 text-emerald-500 flex flex-col items-center">
+                <i data-lucide="fingerprint" class="w-20 h-20 stroke-[1.5] animate-pulse"></i>
+            </div>
+            <h1 class="text-3xl font-black italic mb-4 text-slate-800 tracking-tighter leading-tight">
+                あなたが気になる部位はどこ？
+            </h1>
+            <p class="text-emerald-600 text-xs mb-10 tracking-[0.2em] font-bold uppercase">Identify Your Target Area</p>
+            
+            <div class="grid grid-cols-1 gap-4 w-full max-w-[280px]">
+                <button onclick="startExperience('chin')" class="py-5 bg-white border border-slate-100 shadow-sm rounded-2xl font-bold tracking-widest text-slate-700 hover:border-emerald-400 transition-all flex items-center justify-center gap-2">
+                    あご下 <i data-lucide="arrow-right" class="w-4 h-4 text-emerald-400"></i>
+                </button>
+                <button onclick="startExperience('belly')" class="py-5 bg-white border border-slate-100 shadow-sm rounded-2xl font-bold tracking-widest text-slate-700 hover:border-emerald-400 transition-all flex items-center justify-center gap-2">
+                    腹 <i data-lucide="arrow-right" class="w-4 h-4 text-emerald-400"></i>
+                </button>
+                <button onclick="startExperience('arm')" class="py-5 bg-white border border-slate-100 shadow-sm rounded-2xl font-bold tracking-widest text-slate-700 hover:border-emerald-400 transition-all flex items-center justify-center gap-2">
+                    二の腕 <i data-lucide="arrow-right" class="w-4 h-4 text-emerald-400"></i>
+                </button>
+            </div>
+            
+            <p class="text-slate-400 text-[10px] mt-12 leading-relaxed">
+                気になる部位を選び、理想のラインをなぞってください。<br>
+                本来の姿が露わになります。
+            </p>
+        </section>
+
+        <!-- 2. REVEAL EXPERIENCE SECTION -->
+        <section id="reveal-section" class="hidden-section absolute inset-0 z-10 bg-slate-50 flex flex-col items-center justify-center text-center">
+            <div id="after-image-container" class="absolute inset-0 z-0 text-center">
+                <img id="after-img" src="" class="w-full h-full object-cover grayscale-[0.05]" alt="Ideal Result">
+                <div class="absolute inset-0 bg-white/20"></div>
+            </div>
+            <canvas id="particle-canvas" class="absolute inset-0 z-20 pointer-events-none"></canvas>
+            <canvas id="scratch-canvas" class="absolute inset-0 z-10 cursor-crosshair"></canvas>
+
+            <div class="absolute inset-0 z-30 pointer-events-none flex flex-col items-center justify-between py-16 px-8">
+                <div id="loading-indicator" class="bg-white/90 px-6 py-2 rounded-full shadow-lg text-emerald-500 text-xs font-bold animate-pulse">
+                    読み込み中...
+                </div>
+                <div id="reveal-guide" class="bg-white/60 backdrop-blur-md px-8 py-6 rounded-3xl border border-white/40">
+                    <div class="text-emerald-600 flex flex-col items-center gap-2 animate-pulse">
+                        <i data-lucide="layers" class="w-8 h-8"></i>
+                        <h2 class="text-2xl font-black italic tracking-tighter">理想のラインをなぞって</h2>
+                    </div>
+                </div>
+                <button id="finish-btn" onclick="showResult()" class="hidden pointer-events-auto px-10 py-5 bg-emerald-500 text-white font-black uppercase tracking-[0.4em] rounded-full shadow-xl hover:bg-emerald-600 transition-all active:scale-95 text-sm">
+                    変化を見てみる <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                </button>
+            </div>
+        </section>
+
+        <!-- 3. RESULT SECTION -->
+        <section id="result-section" class="hidden-section absolute inset-0 z-40 bg-white overflow-y-auto text-center">
+            <div class="w-full h-[40vh] relative overflow-hidden flex-shrink-0">
+                <img id="final-result-img" src="" class="w-full h-full object-cover text-center" alt="Final Result">
+                <div class="absolute inset-0 bg-gradient-to-t from-white via-transparent to-transparent pointer-events-none text-center"></div>
+            </div>
+            
+            <div class="p-8 flex flex-col items-center w-full text-center">
+                <div class="flex items-center gap-2 text-emerald-500 mb-2 text-center">
+                    <i data-lucide="sparkles" class="w-5 h-5 animate-pulse"></i>
+                    <span class="text-[10px] font-black tracking-[0.5em] uppercase">Result Optimized</span>
+                </div>
+                <h2 class="text-3xl font-black italic mb-10 text-slate-800 tracking-tighter leading-tight text-center">
+                    「あなたはもっと<br><span class="text-emerald-500 text-center">美しくなれる</span>」
+                </h2>
+
+                <!-- 痩せるとここまで変わる！！ -->
+                <div class="w-full bg-emerald-50/30 rounded-3xl p-8 mb-12 border border-emerald-100/50 text-left">
+                    <h3 class="text-emerald-700 font-black text-lg mb-8 text-center flex items-center justify-center gap-2">
+                        痩せるとここまで変わる！！
+                    </h3>
+                    <div class="space-y-6">
+                        <div class="flex flex-col gap-1 text-left">
+                            <div class="text-emerald-600 font-bold text-sm flex items-center gap-2">
+                                <i data-lucide="check-circle-2" class="w-4 h-4"></i> 「着たい服」を基準に
+                            </div>
+                            <p class="text-xs text-slate-600 leading-relaxed pl-6">
+                                体型を隠すオーバーサイズではなく、好きな服を自由に選べるようになります。
+                            </p>
+                        </div>
+                        <div class="flex flex-col gap-1 text-left">
+                            <div class="text-emerald-600 font-bold text-sm flex items-center gap-2">
+                                <i data-lucide="check-circle-2" class="w-4 h-4"></i> 清潔感が出る
+                            </div>
+                            <p class="text-xs text-slate-600 leading-relaxed pl-6">
+                                フェイスラインや体のラインが整うことで、清潔感のある印象を与えます。
+                            </p>
+                        </div>
+                        <div class="flex flex-col gap-1 text-left">
+                            <div class="text-emerald-600 font-bold text-sm flex items-center gap-2">
+                                <i data-lucide="check-circle-2" class="w-4 h-4"></i> 写真の「加工」いらず
+                            </div>
+                            <p class="text-xs text-slate-600 leading-relaxed pl-6">
+                                アプリで輪郭を削る手間がゼロに。不意の横顔でも自信を持って微笑めます。
+                            </p>
+                        </div>
+                        <div class="flex flex-col gap-1 text-left">
+                            <div class="text-emerald-600 font-bold text-sm flex items-center gap-2">
+                                <i data-lucide="check-circle-2" class="w-4 h-4"></i> 自分に自信が持てる
+                            </div>
+                            <p class="text-xs text-slate-600 leading-relaxed pl-6 text-left">
+                                痩せて可愛くなり、何より自分に自信が持て人生が楽しくなります。
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 今すぐ動く人 と あとからする人 -->
+                <div class="w-full mb-16 text-center">
+                    <h4 class="text-sm font-black text-slate-700 mb-6 py-2 px-4 bg-slate-50 inline-block rounded-full border border-slate-100 shadow-sm text-center">
+                        今すぐ動く人 と あとからする人
+                    </h4>
+                    <div class="grid grid-cols-1 gap-4">
+                        <div class="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm">
+                            <p class="text-[10px] font-bold text-slate-400 mb-2 uppercase tracking-widest text-center">脂肪の状態</p>
+                            <div class="flex justify-between items-center px-2">
+                                <div class="text-center w-1/2 border-r border-slate-100">
+                                    <p class="text-emerald-600 font-black text-xs">まだ柔らかく<br>浸透しやすい</p>
+                                </div>
+                                <div class="text-center w-1/2 text-center">
+                                    <p class="text-slate-400 font-bold text-xs opacity-60 text-center">セルライト化し<br>固く浸透しにくい</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm text-center">
+                            <p class="text-[10px] font-bold text-slate-400 mb-2 uppercase tracking-widest text-center text-center">皮膚のコンディション</p>
+                            <div class="flex justify-between items-center px-2 text-center">
+                                <div class="text-center w-1/2 border-r border-slate-100 text-center text-center">
+                                    <p class="text-emerald-600 font-black text-xs text-center">同時に<br>引き締まる</p>
+                                </div>
+                                <div class="text-center w-1/2 text-center text-center text-center">
+                                    <p class="text-red-400 font-bold text-xs opacity-60 text-center text-center">脂肪の重さで<br>深いシワたるみへ</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm text-center">
+                            <p class="text-[10px] font-bold text-slate-400 mb-2 uppercase tracking-widest text-center text-center">費用</p>
+                            <div class="flex justify-between items-center px-2 text-center text-center">
+                                <div class="text-center w-1/2 border-r border-slate-100 text-center">
+                                    <p class="text-emerald-600 font-black text-xs text-center">最少回数<br>(最小コスト)</p>
+                                </div>
+                                <div class="text-center w-1/2 text-center text-center text-center">
+                                    <p class="text-slate-400 font-bold text-xs opacity-60 text-center text-center">数十万円の<br>追加出費</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm text-center">
+                            <p class="text-[10px] font-bold text-slate-400 mb-2 uppercase tracking-widest text-center text-center">選択肢</p>
+                            <div class="flex justify-between items-center px-2 text-center text-center">
+                                <div class="text-center w-1/2 border-r border-slate-100 text-center text-center">
+                                    <p class="text-emerald-600 font-black text-xs text-center">選択肢が多い</p>
+                                </div>
+                                <div class="text-center w-1/2 text-center text-center text-center">
+                                    <p class="text-slate-400 font-bold text-xs opacity-60 text-center text-center">選択肢が少ない</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 核心メッセージ -->
+                <div class="w-full mb-16 px-4 text-center">
+                    <p class="text-sm font-bold text-slate-700 leading-relaxed text-center">
+                        いくらダイエットしても落ちない<br>
+                        <span class="text-lg text-slate-900 marker-highlight">「あご下」「二の腕」「腹」</span>は、<br>
+                        <span class="underline decoration-emerald-400 decoration-2 underline-offset-4 text-center">あなたの努力不足ではありません。</span>
+                    </p>
+                    <p class="text-xl font-black text-emerald-800 mt-8 text-center">
+                        それは、<span class="bg-emerald-600 text-white px-3 py-1 rounded transform -rotate-1 inline-block text-center">体質</span>のせいかも！？
+                    </p>
+                    <div class="mt-10">
+                        <p class="text-xs font-bold text-emerald-500 tracking-[0.4em] mb-2 uppercase text-center">そんなあなたには！！</p>
+                        <h3 class="text-5xl font-black italic tracking-tighter text-emerald-600 text-center">スルリム</h3>
+                    </div>
+                </div>
+
+                <!-- マッコイ斎藤さんセクション -->
+                <div class="w-full mb-20 rounded-[2.5rem] overflow-hidden bg-slate-900 shadow-2xl text-center">
+                    <div class="relative w-full aspect-video">
+                        <img src="https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?q=80&w=800&auto=format&fit=crop" class="w-full h-full object-cover opacity-80" alt="McCoy Saito Experience">
+                        <div class="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent text-center"></div>
+                        <div class="absolute bottom-6 left-8 text-white text-left text-left text-left">
+                            <p class="text-[10px] font-bold opacity-60 mb-1 uppercase tracking-widest text-left text-left">Special Endorsement</p>
+                            <h4 class="text-xl font-black italic text-left text-left text-left">マッコイ斎藤さんがスルリムを体験！</h4>
+                        </div>
+                    </div>
+                    <div class="p-8 bg-slate-800 border-t border-slate-700 text-center">
+                        <p class="text-emerald-400 font-black text-3xl tracking-tighter text-center">
+                            たった1回の施術で <span class="text-4xl text-white text-center">約 -6.5kg</span>
+                        </p>
+                        <p class="text-[10px] text-slate-500 mt-2 font-bold uppercase tracking-widest text-center">※効果には個人差があります</p>
+                    </div>
+                </div>
+
+                <!-- スルリムとは？ -->
+                <div class="w-full space-y-10 mb-20 text-center text-center">
+                    <h3 class="text-2xl font-black text-slate-800 tracking-tighter text-center">スルリムとは？</h3>
+                    
+                    <div class="bg-white border border-slate-100 rounded-[2.5rem] p-10 shadow-sm flex flex-col items-center text-center">
+                        <div class="flex items-center justify-center gap-3 mb-10 w-full text-center">
+                            <div class="stat-circle border-emerald-100 bg-emerald-50/30 text-center text-center text-center">
+                                <p class="text-[8px] font-bold text-emerald-600 mb-1 text-center">クリニック数</p>
+                                <p class="text-[12px] font-black text-emerald-900 leading-tight text-center">全国34院</p>
+                            </div>
+                            <div class="stat-circle border-emerald-100 bg-emerald-50/30 text-center text-center text-center text-center">
+                                <p class="text-[8px] font-bold text-emerald-600 mb-1 text-center">最短</p>
+                                <p class="text-[12px] font-black text-emerald-900 leading-tight text-center text-center text-center">15分</p>
+                            </div>
+                            <div class="stat-circle border-emerald-100 bg-emerald-50/30 text-center text-center text-center text-center">
+                                <p class="text-[8px] font-bold text-emerald-600 mb-1 text-center text-center">LINE友達</p>
+                                <p class="text-[12px] font-black text-emerald-900 leading-tight text-center text-center text-center">30万人</p>
+                            </div>
+                        </div>
+                        <div class="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center mb-6">
+                            <i data-lucide="shield-check" class="text-emerald-600 w-7 h-7"></i>
+                        </div>
+                        <h4 class="text-xl font-black text-slate-800 mb-4 text-center">10年無事故実績 15万件</h4>
+                        <p class="text-xs text-slate-500 leading-relaxed font-bold text-center">多くの方に選ばれ続けている、<br>確かな信頼と実績の証です。</p>
+                    </div>
+
+                    <!-- 破壊と排出 -->
+                    <div class="bg-white border border-slate-100 rounded-[2.5rem] p-8 shadow-sm flex flex-col items-center text-center">
+                        <div class="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center mb-6 text-center">
+                            <i data-lucide="zap" class="text-emerald-600 w-7 h-7 text-center"></i>
+                        </div>
+                        <h4 class="text-lg font-black text-slate-800 mb-3 text-center text-center text-center text-center">１回で脂肪細胞の35%を排出</h4>
+                        <div class="bg-emerald-50 p-4 rounded-2xl border-l-4 border-emerald-400 mb-4 w-full">
+                            <p class="text-[13px] font-black text-emerald-800 text-center text-center">従来の脂肪溶解注射の5倍の効果</p>
+                        </div>
+                        <p class="text-xs text-slate-500 leading-relaxed text-left text-left text-left">
+                            一時的に細胞を小さくするのではなく、脂肪細胞の膜を壊して体外へ排出を促します。脂肪細胞を直接「破壊・排出」するから、<span class="text-emerald-600 font-black italic text-sm text-center text-center text-center">リバウンド０を追求！！</span>
+                        </p>
+                    </div>
+
+                    <!-- デザイン性 -->
+                    <div class="bg-white border border-slate-100 rounded-[2.5rem] p-8 shadow-sm flex flex-col items-center text-center">
+                        <div class="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center mb-6 text-center">
+                            <i data-lucide="pen-tool" class="text-emerald-600 w-7 h-7 text-center text-center text-center"></i>
+                        </div>
+                        <h4 class="text-lg font-black text-slate-800 mb-3 text-center text-center text-center">部分痩せの「デザイン性」が高い</h4>
+                        <p class="text-xs text-slate-500 leading-relaxed text-left text-left text-left">
+                            ダイエットでは落としにくい<span class="font-bold text-slate-900 text-left text-left">「あご下の肉」「下っ腹」「二の腕」</span>など、ピンポイントな脂肪を狙い撃ち。理想のボディラインを<span class="text-emerald-600 font-bold text-center">「作る」感覚に近い</span>メリットです。
+                        </p>
+                    </div>
+                </div>
+
+                <!-- 理想を叶える4つのステップ -->
+                <div class="w-full py-12 px-2 text-center text-center text-center">
+                    <div class="flex flex-col items-center mb-16 text-center text-center">
+                        <p class="text-[10px] font-bold text-emerald-600 tracking-[0.4em] uppercase mb-2">Road to Beauty</p>
+                        <h3 class="text-2xl font-black text-slate-800 tracking-tighter text-center">理想を叶える4つのステップ</h3>
+                    </div>
+
+                    <div class="space-y-0 text-left text-left">
+                        <!-- Step 1 -->
+                        <div class="flex gap-4 step-item mb-12">
+                            <div class="flex flex-col items-center step-indicator text-center text-center text-center">
+                                <div class="w-10 h-10 bg-emerald-500 rounded-full flex items-center justify-center shadow-lg shadow-emerald-200 z-10 text-white font-black text-sm italic text-center text-center text-center">1</div>
+                            </div>
+                            <div class="flex-1">
+                                <h4 class="text-base font-black text-slate-800 mb-2 text-left">ステップ1：LINE登録</h4>
+                                <p class="text-xs text-slate-500 leading-relaxed mb-6 text-left">
+                                    まずは公式LINEで友達登録。最新情報や劇的な変化を遂げた症例もこちらから。気軽に始められる第一歩です。
+                                </p>
+                                <button class="w-full py-4 bg-[#06C755] text-white font-black rounded-xl flex items-center justify-center gap-2 mb-4">
+                                    LINE友だち追加はこちら <i data-lucide="message-circle" class="w-4 h-4"></i>
+                                </button>
+                                <img src="https://images.unsplash.com/photo-1512428559087-560fa5ceab42?auto=format&fit=crop&q=80&w=600" class="w-full aspect-video rounded-2xl object-cover shadow-sm border border-slate-100" alt="LINE登録イメージ">
+                            </div>
+                        </div>
+                        <!-- Step 2 -->
+                        <div class="flex gap-4 step-item mb-12 text-left text-left text-left text-left">
+                            <div class="flex flex-col items-center step-indicator text-center text-center text-center">
+                                <div class="w-10 h-10 bg-emerald-500 rounded-full flex items-center justify-center shadow-lg shadow-emerald-200 z-10 text-white font-black text-sm italic text-center text-center text-center text-center text-center">2</div>
+                            </div>
+                            <div class="flex-1">
+                                <h4 class="text-base font-black text-slate-800 mb-2 text-left">ステップ2：来院予約</h4>
+                                <p class="text-xs text-slate-500 leading-relaxed mb-4 text-left">友達追加後、トーク画面からご希望の日時を指定。スムーズな予約体験を提供します。</p>
+                                <img src="https://images.unsplash.com/photo-1506784983877-45594efa4cbe?auto=format&fit=crop&q=80&w=600" class="w-full aspect-video rounded-2xl object-cover shadow-sm border border-slate-100" alt="予約イメージ">
+                            </div>
+                        </div>
+                        <!-- Step 3 -->
+                        <div class="flex gap-4 step-item mb-12 text-left text-left text-left text-left">
+                            <div class="flex flex-col items-center step-indicator text-center text-center text-center text-center text-center text-center text-center text-center">
+                                <div class="w-10 h-10 bg-emerald-500 rounded-full flex items-center justify-center shadow-lg shadow-emerald-200 z-10 text-white font-black text-sm italic text-center text-center text-center text-center">3</div>
+                            </div>
+                            <div class="flex-1 text-left text-left text-left">
+                                <h4 class="text-base font-black text-slate-800 mb-2 text-left text-left text-left">ステップ3：来院カウンセリング</h4>
+                                <p class="text-xs text-slate-500 leading-relaxed mb-4 text-left">不安なことは何でもお聞きください。<span class="text-emerald-600 font-bold text-left text-left">相談だけでもOK！</span>内容にご納得いただければ施術へ。</p>
+                                <img src="https://images.unsplash.com/photo-1576091160550-2173dba999ef?auto=format&fit=crop&q=80&w=600" class="w-full aspect-video rounded-2xl object-cover shadow-sm border border-slate-100 text-center" alt="カウンセリングイメージ">
+                            </div>
+                        </div>
+                        <!-- Step 4 -->
+                        <div class="flex gap-4 step-item text-left text-left text-left text-left text-left text-left text-left text-left">
+                            <div class="flex flex-col items-center step-indicator text-center text-center text-center text-center">
+                                <div class="w-10 h-10 bg-emerald-600 rounded-full flex items-center justify-center shadow-lg shadow-emerald-200 z-10 text-white font-black text-sm italic text-center text-center text-center text-center text-center text-center">4</div>
+                            </div>
+                            <div class="flex-1 text-left text-left text-left">
+                                <h4 class="text-base font-black text-slate-800 mb-2 text-left">ステップ4：施術・理想の体へ</h4>
+                                <p class="text-xs text-slate-500 leading-relaxed mb-4 text-left">劇的な変化への期待を胸に、<span class="text-emerald-600 font-black italic underline decoration-emerald-100 decoration-4 underline-offset-4 text-left">鏡を見るのが楽しみになる本来の姿</span>を手に入れましょう。</p>
+                                
+                                <!-- Q&Aセクション -->
+                                <div class="mt-8 bg-white border border-slate-100 rounded-[1.5rem] p-6 shadow-sm text-left text-left text-left text-left">
+                                    <h5 class="text-sm font-black text-slate-800 mb-6 text-center text-center">よくあるご質問（Q&A）</h5>
+                                    
+                                    <div class="space-y-4">
+                                        <!-- Q1 -->
+                                        <div class="qa-item border-b border-slate-50 last:border-0 pb-4 text-left text-left text-left">
+                                            <button onclick="toggleQA(this)" class="flex w-full items-center justify-between text-left focus:outline-none">
+                                                <div class="flex items-center gap-2">
+                                                    <span class="bg-emerald-100 text-emerald-700 font-black px-1.5 py-0.5 rounded text-[10px]">Q</span>
+                                                    <p class="text-[11px] font-bold text-slate-800 text-left">痛みはどの程度ありますか？</p>
+                                                </div>
+                                                <i data-lucide="chevron-down" class="qa-icon w-4 h-4 text-slate-300 text-center"></i>
+                                            </button>
+                                            <div class="qa-answer text-left text-left text-left text-left">
+                                                <div class="flex gap-2">
+                                                    <span class="text-emerald-500 font-black text-[10px] pt-0.5 text-center">A</span>
+                                                    <p class="text-[10px] text-slate-500 leading-relaxed text-left text-left text-left">ワクチンの接種に似たチクッとする感覚はあります。。落ち着いて施術を受けていただけます。</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <!-- Q2 -->
+                                        <div class="qa-item border-b border-slate-50 last:border-0 pb-4 text-left text-left text-left">
+                                            <button onclick="toggleQA(this)" class="flex w-full items-center justify-between text-left focus:outline-none text-left text-left">
+                                                <div class="flex items-center gap-2 text-left text-left text-left text-left">
+                                                    <span class="bg-emerald-100 text-emerald-700 font-black px-1.5 py-0.5 rounded text-[10px]">Q</span>
+                                                    <p class="text-[11px] font-bold text-slate-800 text-left text-left text-left text-left">いつから変化を感じられますか？</p>
+                                                </div>
+                                                <i data-lucide="chevron-down" class="qa-icon w-4 h-4 text-slate-300 text-center text-center"></i>
+                                            </button>
+                                            <div class="qa-answer text-left text-left text-left text-left text-left">
+                                                <div class="flex gap-2 text-left">
+                                                    <span class="text-emerald-500 font-black text-[10px] pt-0.5 text-center text-center">A</span>
+                                                    <p class="text-[10px] text-slate-500 leading-relaxed text-left text-left">体質により前後しますが、施術直後から1週間ほどで変化を実感し始める方が多くおられます。</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <!-- Q3 -->
+                                        <div class="qa-item border-b border-slate-50 last:border-0 pb-4 text-left text-left text-left text-left text-left">
+                                            <button onclick="toggleQA(this)" class="flex w-full items-center justify-between text-left focus:outline-none text-left text-left">
+                                                <div class="flex items-center gap-2 text-left text-left text-left text-left text-left">
+                                                    <span class="bg-emerald-100 text-emerald-700 font-black px-1.5 py-0.5 rounded text-[10px]">Q</span>
+                                                    <p class="text-[11px] font-bold text-slate-800 text-left text-left text-left text-left text-left">リバウンドのリスクについて教えてください。</p>
+                                                </div>
+                                                <i data-lucide="chevron-down" class="qa-icon w-4 h-4 text-slate-300 text-center text-center text-center"></i>
+                                            </button>
+                                            <div class="qa-answer text-left text-left text-left text-left text-left text-left text-left">
+                                                <div class="flex gap-2">
+                                                    <span class="text-emerald-500 font-black text-[10px] pt-0.5 text-center text-center text-center text-center">A</span>
+                                                    <p class="text-[10px] text-slate-500 leading-relaxed text-left text-left">脂肪の数そのものを物理的に減らすため、一般的なダイエットに比べてリバウンドしにくいのが大きな強みです。</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <!-- Q4 -->
+                                        <div class="qa-item border-b border-slate-50 last:border-0 pb-4 text-left text-left text-left text-left text-left">
+                                            <button onclick="toggleQA(this)" class="flex w-full items-center justify-between text-left focus:outline-none text-left text-left">
+                                                <div class="flex items-center gap-2 text-left text-left text-left text-left text-left text-left text-left">
+                                                    <span class="bg-emerald-100 text-emerald-700 font-black px-1.5 py-0.5 rounded text-[10px]">Q</span>
+                                                    <p class="text-[11px] font-bold text-slate-800 text-left text-left text-left text-left text-left text-left text-left">無理な勧誘や予期せぬ費用は発生しますか？</p>
+                                                </div>
+                                                <i data-lucide="chevron-down" class="qa-icon w-4 h-4 text-slate-300 text-center text-center text-center text-center text-center"></i>
+                                            </button>
+                                            <div class="qa-answer text-left text-left text-left text-left text-left text-left text-left text-left text-left">
+                                                <div class="flex gap-2 text-left text-left text-left">
+                                                    <span class="text-emerald-500 font-black text-[10px] pt-0.5 text-center text-center text-center">A</span>
+                                                    <p class="text-[10px] text-slate-500 leading-relaxed text-left text-left text-left">強引な契約の提案や、表示価格以外の不透明な請求は一切ございませんので、安心してお越しください。</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <!-- Q5 -->
+                                        <div class="qa-item border-b border-slate-50 last:border-0 pb-4 text-left text-left text-left">
+                                            <button onclick="toggleQA(this)" class="flex w-full items-center justify-between text-left focus:outline-none text-left text-left text-left text-left text-left">
+                                                <div class="flex items-center gap-2 text-left text-left text-left text-left text-left">
+                                                    <span class="bg-emerald-100 text-emerald-700 font-black px-1.5 py-0.5 rounded text-[10px]">Q</span>
+                                                    <p class="text-[11px] font-bold text-slate-800 text-left text-left text-left text-left text-left text-left">本当にこの価格で受けられるのでしょうか？</p>
+                                                </div>
+                                                <i data-lucide="chevron-down" class="qa-icon w-4 h-4 text-slate-300 text-center text-center text-center text-center text-center text-center"></i>
+                                            </button>
+                                            <div class="qa-answer text-left text-left text-left text-left text-left text-left">
+                                                <div class="flex gap-2 text-left text-left">
+                                                    <span class="text-emerald-500 font-black text-[10px] pt-0.5 text-center text-center text-center">A</span>
+                                                    <p class="text-[10px] text-slate-500 leading-relaxed text-left text-left text-left text-left">間違いございません。当ページからLINE連携を行い、ご予約を確定された方に限り限定価格が適用されます。ただし、枠が埋まり次第終了となりますので、その点だけご容赦ください。</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <img src="https://images.unsplash.com/photo-1515377905703-c4788e51af15?auto=format&fit=crop&q=80&w=600" class="mt-8 w-full aspect-video rounded-2xl object-cover shadow-sm border border-emerald-100" alt="理想の体イメージ">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 最終アクション -->
+                <div class="flex flex-col gap-4 w-full max-w-[320px] pb-12 mx-auto text-center text-center text-center text-center text-center text-center">
+                    <button onclick="location.reload()" class="py-3 text-[11px] font-bold tracking-widest text-slate-400 hover:text-emerald-600 transition-colors flex items-center justify-center gap-2 text-center text-center text-center text-center text-center text-center text-center">
+                        <i data-lucide="refresh-cw" class="w-3 h-3 text-center text-center text-center text-center text-center text-center text-center"></i> 体験をやり直す
+                    </button>
+                </div>
+
+                <!-- 大型のクロージングセクション -->
+                <div class="w-full py-24 px-6 bg-gradient-to-b from-white to-emerald-50/30 border-t border-emerald-100 flex flex-col items-center">
+                    <div class="bg-white border-2 border-emerald-100 rounded-[3.5rem] shadow-2xl p-10 w-full max-w-[400px] text-center text-center text-center text-center">
+                        <div class="mb-8">
+                            <span class="text-[11px] font-black bg-emerald-600 text-white px-6 py-2 rounded-full uppercase tracking-widest mb-4 inline-block shadow-lg shadow-emerald-900/20 text-center text-center text-center">Special Campaign</span>
+                            <h4 class="text-2xl font-black text-slate-800 text-center text-center text-center">このページをご覧の方へ！！</h4>
+                        </div>
+                        
+                        <div class="flex flex-col items-center mb-10 text-center text-center text-center text-center text-center text-center">
+                            <div class="flex items-baseline gap-1.5 text-center text-center text-center text-center">
+                                <span class="text-xl font-bold text-emerald-600 italic text-center">税込</span>
+                                <span class="text-[5rem] font-black italic tracking-tighter text-slate-800 leading-none text-center text-center text-center">9,800</span>
+                                <span class="text-2xl font-bold text-slate-800 text-center text-center text-center">円</span>
+                            </div>
+                            <div class="w-2/3 h-2 bg-emerald-100 mt-4 rounded-full overflow-hidden text-center text-center text-center text-center text-center text-center">
+                                <div class="bg-emerald-500 h-full w-[80%] animate-pulse text-center"></div>
+                            </div>
+                        </div>
+
+                        <div class="text-left space-y-5 mb-12 bg-slate-50 p-8 rounded-[2.5rem] border border-slate-100">
+                            <p class="text-xs font-black text-emerald-700 text-center border-b border-emerald-100 pb-4 mb-5 tracking-widest uppercase text-center text-center text-center">LINE特典内容</p>
+                            <!-- 更新箇所：指定されたテキストを削除 -->
+                            <div class="flex items-start gap-4 text-left">
+                                <div class="w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 text-center">
+                                    <i data-lucide="check" class="text-white w-4 h-4 text-center"></i>
+                                </div>
+                                <p class="text-[14px] text-slate-700 font-bold text-left text-left text-left">他の体験者の症例・変化をチェック</p>
+                            </div>
+                            <div class="flex items-start gap-4 text-left text-left text-left text-left">
+                                <div class="w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 text-center text-center text-center">
+                                    <i data-lucide="check" class="text-white w-4 h-4 text-center"></i>
+                                </div>
+                                <p class="text-[14px] text-slate-700 font-bold text-left text-left text-left text-left">LINE限定のお得な情報を配信</p>
+                            </div>
+                            <div class="flex items-start gap-4 text-left text-left text-left text-left text-left">
+                                <div class="w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 text-center text-center text-center text-center">
+                                    <i data-lucide="check" class="text-white w-4 h-4 text-center"></i>
+                                </div>
+                                <p class="text-[14px] text-slate-700 font-bold text-left text-left text-left text-left">予約も相談もLINEで完結</p>
+                            </div>
+                        </div>
+
+                        <button class="w-full py-8 bg-[#06C755] text-white font-black rounded-[2.2rem] shadow-[0_15px_35px_-5px_rgba(6,199,85,0.4)] hover:bg-[#05b54d] transition-all active:scale-[0.98] text-center text-center">
+                            <span class="text-lg tracking-widest text-center text-center text-center text-center text-center text-center">LINEで特典を受け取る</span>
+                        </button>
+                        <p class="text-[10px] text-slate-400 mt-6 font-bold text-center text-center text-center text-center">※ボタンを押すとLINEアプリが開きます</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- FOOTER BRANDING -->
+        <div class="sticky bottom-4 w-full text-center pointer-events-none z-30 opacity-40 text-center text-center text-center text-center text-center text-center text-center text-center text-center">
+            <div class="text-[9px] tracking-[0.5em] uppercase text-emerald-800 font-bold text-center text-center text-center text-center text-center">
+                スルリム / Precision Aesthetic Technology
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const PART_DATA = {
+            chin: { before: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?q=80&w=800', after: 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?q=80&w=800' },
+            belly: { before: 'https://images.unsplash.com/photo-1518310383802-640c2de311b2?q=80&w=800', after: 'https://images.unsplash.com/photo-1594381898411-846e7d193883?q=80&w=800' },
+            arm: { before: 'https://images.unsplash.com/photo-1533038590840-1cde6e668a91?q=80&w=800', after: 'https://images.unsplash.com/photo-1571731956672-f2b94d7dd0cb?q=80&w=800' }
+        };
+
+        let isDrawing = false, isImageLoaded = false, particles = [], scratchCtx, particleCtx, canvas, pCanvas, selected;
+
+        function startExperience(id) {
+            selected = PART_DATA[id];
+            document.getElementById('intro-section').classList.add('opacity-0', 'pointer-events-none');
+            setTimeout(() => {
+                document.getElementById('intro-section').classList.add('hidden-section');
+                document.getElementById('reveal-section').classList.remove('hidden-section');
+                document.getElementById('after-img').src = selected.after;
+                document.getElementById('final-result-img').src = selected.after;
+                initCanvas();
+            }, 1000);
+        }
+
+        function initCanvas() {
+            canvas = document.getElementById('scratch-canvas');
+            pCanvas = document.getElementById('particle-canvas');
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = pCanvas.width = rect.width;
+            canvas.height = pCanvas.height = rect.height;
+            scratchCtx = canvas.getContext('2d');
+            particleCtx = pCanvas.getContext('2d');
+
+            const img = new Image();
+            img.crossOrigin = "anonymous";
+            img.src = selected.before;
+            img.onload = () => {
+                const scale = Math.max(canvas.width / img.width, canvas.height / img.height);
+                const x = (canvas.width - img.width * scale) / 2;
+                const y = (canvas.height - img.height * scale) / 2;
+                scratchCtx.drawImage(img, x, y, img.width * scale, img.height * scale);
+                
+                scratchCtx.globalCompositeOperation = 'destination-out';
+                scratchCtx.lineWidth = 60; 
+                scratchCtx.lineCap = 'round';
+                scratchCtx.lineJoin = 'round';
+                
+                document.getElementById('loading-indicator').classList.add('hidden');
+                isImageLoaded = true;
+                requestAnimationFrame(animate);
+            };
+
+            const getPos = e => {
+                const r = canvas.getBoundingClientRect();
+                return { x: (e.clientX || e.touches[0].clientX) - r.left, y: (e.clientY || (e.touches && e.touches[0].clientY)) - r.top };
+            };
+
+            const start = e => { 
+                if(!isImageLoaded) return; 
+                isDrawing = true; 
+                scratchCtx.beginPath(); 
+                const p = getPos(e); 
+                scratchCtx.moveTo(p.x, p.y); 
+                canvas.style.transition = 'none';
+                canvas.style.opacity = '1';
+                document.getElementById('after-image-container').classList.remove('emerge-active');
+            };
+            
+            const move = e => { 
+                if(!isDrawing) return; 
+                if(e.cancelable) e.preventDefault(); 
+                const p = getPos(e); 
+                scratchCtx.lineTo(p.x, p.y); 
+                scratchCtx.stroke(); 
+                spawnParticles(p.x, p.y); 
+            };
+            
+            const end = () => { 
+                if(!isDrawing) return; 
+                isDrawing = false; 
+                
+                canvas.style.transition = 'opacity 2s ease-in-out';
+                canvas.style.opacity = '0';
+                document.getElementById('after-image-container').classList.add('emerge-active');
+                
+                document.getElementById('finish-btn').classList.remove('hidden'); 
+                document.getElementById('reveal-guide').classList.add('opacity-0'); 
+            };
+
+            canvas.addEventListener('mousedown', start); canvas.addEventListener('mousemove', move); window.addEventListener('mouseup', end);
+            canvas.addEventListener('touchstart', start, {passive: false}); canvas.addEventListener('touchmove', move, {passive: false}); window.addEventListener('touchend', end);
+        }
+
+        function spawnParticles(x, y) {
+            for(let i=0; i<4; i++) particles.push({ x, y, vx: (Math.random()-0.5)*5, vy: (Math.random()-0.5)*5, size: Math.random()*2+1, alpha: 1 });
+        }
+
+        function animate() {
+            particleCtx.clearRect(0,0,pCanvas.width,pCanvas.height);
+            particles.forEach((p, i) => {
+                p.x += p.vx; p.y += p.vy; p.alpha -= 0.02;
+                particleCtx.fillStyle = `rgba(110, 231, 183, ${p.alpha})`;
+                particleCtx.beginPath(); particleCtx.arc(p.x, p.y, p.size, 0, Math.PI*2); particleCtx.fill();
+                if(p.alpha <= 0) particles.splice(i, 1);
+            });
+            requestAnimationFrame(animate);
+        }
+
+        function showResult() {
+            document.getElementById('result-section').classList.remove('hidden-section');
+            document.getElementById('result-section').classList.add('fade-active');
+            lucide.createIcons();
+            document.getElementById('scroll-container').scrollTop = 0;
+        }
+
+        function toggleQA(btn) {
+            btn.parentElement.classList.toggle('active');
+        }
+
+        window.addEventListener('DOMContentLoaded', () => lucide.createIcons());
+    </script>
+</body>
+</html>
